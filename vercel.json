@@ -1,0 +1,25 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/APRESENTACAO_ADMINISTRACAO.html" },
+    { "source": "/apresentacao", "destination": "/APRESENTACAO_ADMINISTRACAO.html" },
+    { "source": "/docs", "destination": "/docs.html" },
+    { "source": "/resumo", "destination": "/docs.html?f=RESUMO_ADMINISTRACAO.md" },
+    { "source": "/arquitetura", "destination": "/docs.html?f=ORDERS_V2_ARCHITECTURE.md" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).md",
+      "headers": [
+        { "key": "Content-Type", "value": "text/markdown; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    },
+    {
+      "source": "/(.*).(html|css|js)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    }
+  ]
+}

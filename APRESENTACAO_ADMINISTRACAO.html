@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orders v2 — Architecture Presentation</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root {
+    --ef-green: #2c6e49;
+    --ef-green-light: #4c956c;
+    --ef-warm: #d68c45;
+    --ef-cream: #fefee3;
+    --ef-dark: #1a1a1a;
+    --ef-gray: #6b6b6b;
+    --ef-border: #d9d9d9;
+    --ef-red: #c44536;
+  }
+  .reveal { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ef-dark); }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--ef-green); text-transform: none; letter-spacing: 0; font-weight: 700; }
+  .reveal h1 { font-size: 2.2em; margin-bottom: 0.3em; line-height: 1.1; }
+  .reveal h2 { font-size: 1.5em; margin-bottom: 0.7em; text-align: left; }
+  .reveal h3 { font-size: 1.1em; color: var(--ef-warm); }
+  .reveal p, .reveal li { font-size: 0.7em; line-height: 1.5; }
+  .reveal ul { margin-left: 1em; }
+  .reveal strong { color: var(--ef-green); }
+  .reveal table { font-size: 0.52em; border-collapse: collapse; margin: 0.5em auto; width: 100%; }
+  .reveal table th { background: var(--ef-green); color: white; padding: 8px 12px; text-align: left; font-weight: 600; border: none; }
+  .reveal table td { padding: 8px 12px; border-bottom: 1px solid var(--ef-border); vertical-align: top; }
+  .reveal table tr:nth-child(even) td { background: #fafafa; }
+  .subtitle { color: var(--ef-gray); font-size: 1em; margin-top: 0.5em; }
+  .kicker { color: var(--ef-warm); font-size: 0.7em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.8em; font-weight: 600; }
+  .flow-container { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 1em 0; }
+  .flow-box { background: white; border: 2px solid var(--ef-green); border-radius: 8px; padding: 10px; min-width: 130px; max-width: 165px; text-align: center; font-size: 0.5em; }
+  .flow-box .num { display: inline-block; background: var(--ef-green); color: white; width: 22px; height: 22px; line-height: 22px; border-radius: 50%; font-weight: 700; margin-bottom: 6px; }
+  .flow-box.warm { border-color: var(--ef-warm); }
+  .flow-box.warm .num { background: var(--ef-warm); }
+  .arrow-down { text-align: center; color: var(--ef-green); font-size: 1.3em; margin: 3px 0; }
+  .arch-stack { display: flex; flex-direction: column; gap: 8px; align-items: stretch; margin: 0.5em 0; }
+  .arch-layer { background: white; border-left: 5px solid var(--ef-green); border-radius: 4px; padding: 10px 16px; font-size: 0.55em; text-align: left; display: flex; align-items: center; gap: 14px; }
+  .arch-layer .badge { background: var(--ef-green); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: 600; white-space: nowrap; }
+  .arch-layer.warm { border-left-color: var(--ef-warm); }
+  .arch-layer.warm .badge { background: var(--ef-warm); }
+  .arch-layer.gray { border-left-color: var(--ef-gray); }
+  .arch-layer.gray .badge { background: var(--ef-gray); }
+  .arch-layer p { margin: 0; flex: 1; font-size: 1em; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 1em 0; text-align: left; }
+  .card { background: white; border: 1px solid var(--ef-border); border-radius: 8px; padding: 14px 18px; font-size: 0.6em; }
+  .card h4 { color: var(--ef-green); margin: 0 0 6px 0; font-size: 1em; }
+  .card.warm { border-top: 4px solid var(--ef-warm); }
+  .card.green { border-top: 4px solid var(--ef-green); }
+  .highlight-box { background: var(--ef-cream); border-left: 5px solid var(--ef-warm); padding: 14px 18px; margin: 0.8em 0; font-size: 0.6em; text-align: left; border-radius: 4px; }
+  .center { text-align: center; }
+  .checkmark { color: var(--ef-green); font-weight: 700; }
+  .cross { color: var(--ef-red); font-weight: 700; }
+  .neutral { color: var(--ef-warm); font-weight: 700; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal section.title-slide h1 { font-size: 2.4em; }
+  .reveal section.title-slide .subtitle { font-size: 1.1em; margin-top: 1em; }
+  .reveal .slide-number { font-size: 14px; }
+
+  /* Table schema visual (like reference image) */
+  .er-diagram { background: #f7f7f7; padding: 20px; border-radius: 8px; overflow: auto; text-align: center; }
+  .er-diagram svg { max-width: 100%; height: auto; }
+  .schema-cards { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-top: 0.5em; }
+  .schema-card {
+    background: white; border: 1px solid var(--ef-border); border-radius: 6px;
+    min-width: 200px; overflow: hidden; text-align: left; font-size: 0.42em;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  }
+  .schema-card-header {
+    background: var(--ef-green); color: white; padding: 5px 10px;
+    font-weight: 700; font-size: 1.15em; letter-spacing: 0.5px;
+  }
+  .schema-card-header.warm { background: var(--ef-warm); }
+  .schema-card-header.gray { background: var(--ef-gray); }
+  .schema-card-row {
+    display: grid; grid-template-columns: 18px 1fr auto;
+    padding: 3px 10px; border-bottom: 1px solid #f0f0f0;
+    gap: 5px; align-items: center;
+  }
+  .schema-card-row:last-child { border-bottom: none; }
+  .schema-card-row .icon { color: var(--ef-warm); font-weight: 700; }
+  .schema-card-row .icon.pk { color: #d4a017; }
+  .schema-card-row .icon.fk { color: var(--ef-green-light); }
+  .schema-card-row .type { color: var(--ef-gray); font-size: 0.9em; font-family: 'Courier New', monospace; }
+
+  /* Case slide title shrink (PDF-friendly) */
+  .reveal section.case-slide h2 { font-size: 1.05em; margin-bottom: 0.25em; }
+  .reveal section.case-slide .kicker { margin-bottom: 0.3em; }
+
+  /* Case flow slides — compact to fit 1280x800 */
+  .case-layout { display: grid; grid-template-columns: 32% 68%; gap: 14px; margin-top: 0.2em; }
+  .case-desc {
+    background: var(--ef-cream); padding: 10px 14px;
+    border-radius: 6px; font-size: 0.5em; border-left: 4px solid var(--ef-warm);
+    text-align: left;
+  }
+  .case-desc h4 { color: var(--ef-warm); margin: 0 0 4px 0; font-size: 1.2em; }
+  .case-desc p { margin: 3px 0; font-size: 1em; line-height: 1.35; }
+  .case-steps { display: flex; flex-direction: column; gap: 5px; }
+  .case-step {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: white; border: 1px solid var(--ef-border);
+    border-radius: 5px; padding: 5px 10px; font-size: 0.42em;
+  }
+  .step-num {
+    background: var(--ef-green); color: white;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; flex-shrink: 0; font-size: 1em;
+  }
+  .step-content { flex: 1; text-align: left; }
+  .step-title { font-weight: 700; color: var(--ef-dark); margin-bottom: 2px; font-size: 1.05em; }
+  .step-ops { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+  .op-tag {
+    display: inline-flex; align-items: center;
+    padding: 1px 7px; border-radius: 10px;
+    font-family: 'Courier New', monospace; font-size: 0.85em;
+    color: white; font-weight: 600;
+  }
+  .op-insert { background: var(--ef-green-light); }
+  .op-update { background: var(--ef-warm); }
+  .op-select { background: var(--ef-gray); }
+  .op-noop { background: transparent; color: var(--ef-gray); border: 1px dashed var(--ef-gray); }
+  .op-manual { background: #b8577a; }
+  .step-note { color: var(--ef-gray); font-size: 0.92em; margin-top: 2px; font-style: italic; }
+
+  /* Sample-data mini-tables (data snapshot per case) */
+  .data-snapshot { margin-top: 8px; }
+  .data-snapshot h4 {
+    color: var(--ef-green); font-size: 0.55em;
+    margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .snap-tables {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 6px;
+  }
+  .snap-table {
+    background: white; border: 1px solid var(--ef-border); border-radius: 4px;
+    overflow: hidden; font-size: 0.36em;
+  }
+  /* Data-landing slide — wider grid + bigger tables since it has the whole slide */
+  .data-landing .snap-tables {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .data-landing .snap-table { font-size: 0.48em; }
+  .data-landing .snap-table .snap-header { padding: 5px 10px; }
+  .data-landing .snap-table th, .data-landing .snap-table td { padding: 4px 8px; }
+  .data-landing .data-snapshot h4 { font-size: 0.65em; margin-bottom: 8px; }
+  .data-landing .data-note {
+    background: var(--ef-cream); border-left: 4px solid var(--ef-warm);
+    padding: 8px 14px; font-size: 0.5em; text-align: left;
+    border-radius: 4px; margin-top: 10px; line-height: 1.4;
+  }
+  .snap-table .snap-header {
+    background: var(--ef-green); color: white; padding: 3px 7px;
+    font-weight: 700; font-size: 1.1em; letter-spacing: 0.5px;
+  }
+  .snap-table.warm .snap-header { background: var(--ef-warm); }
+  .snap-table.gray .snap-header { background: var(--ef-gray); }
+  .snap-table table {
+    width: 100%; font-size: 1em; margin: 0; border-collapse: collapse;
+  }
+  .snap-table th {
+    background: #f2f2f2; color: var(--ef-dark);
+    padding: 2px 5px; border: none; font-size: 0.9em;
+    text-align: left; font-weight: 600;
+  }
+  .snap-table td {
+    padding: 2px 5px; border-top: 1px solid #f0f0f0;
+    font-family: 'Courier New', monospace; font-size: 0.95em;
+    vertical-align: top;
+  }
+  .snap-table tr:nth-child(even) td { background: #fafafa; }
+  .snap-null { color: #bbb; }
+  .snap-new { color: var(--ef-green); font-weight: 700; }
+  .snap-changed { color: var(--ef-warm); font-weight: 700; }
+
+  /* Compact tables for balance formula */
+  .formula-box {
+    display: inline-block; padding: 25px 35px;
+    background: var(--ef-cream); border-radius: 12px;
+    font-size: 0.7em; text-align: center; margin: 1em 0;
+  }
+
+  /* Doc card hover */
+  .doc-card .card { cursor: pointer; }
+  .doc-card:hover .card { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(44,110,73,0.15); }
+
+  /* Mermaid tweaks */
+  .mermaid { text-align: center; font-size: 0.7em; }
+  .mermaid svg { max-height: 620px; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- SLIDE 1: TITLE -->
+<section class="title-slide">
+  <div class="kicker">Equal Food · 2026-07-09</div>
+  <h1>Improve to a more robust<br>and scalable architecture for orders</h1>
+  <p class="subtitle">From Google Sheets to a purpose-built platform</p>
+</section>
+
+<!-- SLIDE 2: IN 30 SECONDS -->
+<section>
+  <div class="kicker">In 30 seconds</div>
+  <h2>What we're replacing and with what</h2>
+  <div class="grid-2">
+    <div class="card green">
+      <h4>Customer-facing site</h4>
+      <p>B2B customers place their own orders up to 14 days ahead. See history, status of each delivery, invoices.</p>
+    </div>
+    <div class="card green">
+      <h4>Professional database</h4>
+      <p>Supabase replaces the spreadsheet. Full traceability: order → delivery → invoice → payment.</p>
+    </div>
+    <div class="card green">
+      <h4>InvoiceXpress integrated natively</h4>
+      <p>Automatic invoicing (today runs on a fragile script). Full log, retry, nightly reconciliation.</p>
+    </div>
+    <div class="card green">
+      <h4>Consolidated back-office</h4>
+      <p>A single "Orders Management" app handles routes, approvals, invoicing and credit notes.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 3: WHY CHANGE -->
+<section>
+  <div class="kicker">The problem</div>
+  <h2>Why we need to change</h2>
+  <table>
+    <thead><tr><th>Today's problem</th><th>Impact</th><th>How v2 resolves it</th></tr></thead>
+    <tbody>
+      <tr><td>One Sheet row = order + delivery + invoice at once</td><td>Impossible to track partial redeliveries</td><td>Separation by area, each with its own lifecycle</td></tr>
+      <tr><td>Customers can't see history or place orders themselves</td><td>All orders go through email/phone → heavy operational load</td><td>Dedicated site, autonomous customer</td></tr>
+      <tr><td>Samples, goodwill and promos are not categorized</td><td>We don't know the annual cost per customer</td><td>Dedicated categories + management dashboard</td></tr>
+      <tr><td>Credit notes are rebuilt by hand</td><td>Human errors, slow, no audit trail</td><td>CNs linked to original invoice, fully tracked</td></tr>
+      <tr><td>Partial redeliveries have no data model</td><td>Confused with new orders or lost</td><td>Line-level status inside delivery, no rebilling</td></tr>
+      <tr><td>Invoicing has no retry or audit</td><td>If the script fails, we don't know what was emitted</td><td>Emission queue + nightly reconciliation vs InvoiceXpress</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SLIDE 4: ORDER JOURNEY -->
+<section>
+  <div class="kicker">How it works</div>
+  <h2>The journey of a single order</h2>
+  <div class="flow-container">
+    <div class="flow-box"><div class="num">1</div><div><strong>Customer submits</strong><br>on the site, up to 14 days ahead</div></div>
+    <div class="flow-box"><div class="num">2</div><div><strong>Admin approves</strong><br>individually or in bulk</div></div>
+    <div class="flow-box"><div class="num">3</div><div><strong>Auto-approval at 17h</strong><br>orders lock down</div></div>
+    <div class="flow-box"><div class="num">4</div><div><strong>OptimoRoute</strong><br>calculates routes</div></div>
+    <div class="flow-box"><div class="num">5</div><div><strong>06h — Lock</strong><br>no more edits allowed</div></div>
+  </div>
+  <div class="arrow-down">↓</div>
+  <div class="flow-container">
+    <div class="flow-box warm"><div class="num">6</div><div><strong>Driver delivers</strong><br>marks status per line</div></div>
+    <div class="flow-box warm"><div class="num">7</div><div><strong>Failed line? Redeliver D+1</strong><br>only the failed product</div></div>
+    <div class="flow-box warm"><div class="num">8</div><div><strong>Automatic invoicing</strong><br>via InvoiceXpress</div></div>
+    <div class="flow-box warm"><div class="num">9</div><div><strong>Payments sync</strong><br>every 2 hours</div></div>
+  </div>
+  <div class="highlight-box">
+    <strong>Key ideas:</strong> what is manual today becomes automatic. What is already automatic (Sheets→InvoiceXpress script) moves to a proper home. <strong>Routes stay in OptimoRoute. Invoicing stays in InvoiceXpress.</strong> We don't change those parts.
+  </div>
+</section>
+
+<!-- SLIDE 5: APPS (CONSOLIDATED) -->
+<section>
+  <div class="kicker">Who uses what</div>
+  <h2>Three internal apps plus OptimoRoute</h2>
+  <table>
+    <thead><tr><th>Application</th><th>User</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Customer Site</strong></td>
+        <td>B2B customers (restaurants, chains)</td>
+        <td>Place orders, view history, see delivery status, download invoices</td>
+      </tr>
+      <tr>
+        <td><strong>Orders Management (GP)</strong></td>
+        <td>Admin (us)</td>
+        <td><strong>Runs the whole internal operation</strong>: approve orders, edit, create samples/goodwill, plan and close routes, trigger invoicing, issue credit notes</td>
+      </tr>
+      <tr>
+        <td><strong>Finance</strong></td>
+        <td>Finance team</td>
+        <td>Register payments, update invoice/CN status</td>
+      </tr>
+      <tr>
+        <td><strong>OptimoRoute</strong> <em>(external, already in use)</em></td>
+        <td>Drivers</td>
+        <td>See daily route, mark deliveries — no changes for the driver's workflow</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="highlight-box">
+    <strong>Design choice:</strong> we consolidated back-office into a single admin app instead of splitting per function. Fewer apps → faster training, fewer permissions to manage, one place to look for anything internal.
+  </div>
+</section>
+
+<!-- SLIDE 6: DATA ORGANIZATION -->
+<section>
+  <div class="kicker">Data organization</div>
+  <h2>Five areas with distinct responsibilities</h2>
+  <div class="arch-stack">
+    <div class="arch-layer green">
+      <span class="badge">1. Commercial</span>
+      <p>What the customer requested · edits · approvals · cancellations · full audit log</p>
+    </div>
+    <div class="arch-layer green">
+      <span class="badge">2. Logistics</span>
+      <p>What physically ships · one <strong>delivery per shipment</strong> (can hold 20+ SKUs) · <strong>line-level status</strong> inside each delivery · redeliveries linked to failed lines · stock movements</p>
+    </div>
+    <div class="arch-layer warm">
+      <span class="badge">3. Fiscal</span>
+      <p>Invoices and credit notes · exactly as emitted in InvoiceXpress · <strong>never overwritten</strong>, always auditable</p>
+    </div>
+    <div class="arch-layer warm">
+      <span class="badge">4. Financial</span>
+      <p>Payments received · CN applications to invoices · <strong>real-time customer balance</strong></p>
+    </div>
+    <div class="arch-layer gray">
+      <span class="badge">5. Integration</span>
+      <p>Emission queue for InvoiceXpress · log of every API call · automatic retry</p>
+    </div>
+  </div>
+  <p class="center" style="font-size: 0.6em; margin-top: 0.6em;"><em>Every business fact (ordered, delivered, invoiced, paid) has its own record and is <strong>never overwritten</strong>.</em></p>
+</section>
+
+<!-- SLIDE 7: SHEETS vs V2 -->
+<section>
+  <div class="kicker">Side-by-side comparison</div>
+  <h2>From the Sheet to v2</h2>
+  <table>
+    <thead><tr><th style="width:50%">Today in the Sheet</th><th style="width:50%">In v2</th></tr></thead>
+    <tbody>
+      <tr><td>One row = order + delivery + invoice</td><td>Each fact in its own area, linked by references</td></tr>
+      <tr><td>Fixing an invoice means editing the original row (history lost)</td><td>Invoice stays intact; a CN is created linked to it</td></tr>
+      <tr><td>Redelivering 1 product forces duplicating the whole row</td><td>Original delivery stays; failed line gets redelivered on D+1</td></tr>
+      <tr><td>Samples mix with normal orders in counts</td><td>Dedicated category; counted separately</td></tr>
+      <tr><td>Payment covering multiple invoices = manual puzzle</td><td>Payment is its own record; abates across invoices automatically</td></tr>
+      <tr><td>No history of who changed what</td><td>Full change log, required for fiscal compliance</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SLIDE 8: DATABASE SCHEMA (ER DIAGRAM) -->
+<section>
+  <div class="kicker">Database schema</div>
+  <h2>All 14 tables and how they link</h2>
+  <div class="mermaid">
+erDiagram
+    CUSTOMERS ||--o{ ORDERS : "places"
+    ORDERS ||--o{ ORDER_ITEMS : "contains"
+    ORDERS ||--o{ ORDER_EVENTS : "audit"
+    ORDERS ||--o{ DELIVERIES : "ships as"
+    DELIVERIES ||--o{ DELIVERY_ITEMS : "contains"
+    ORDER_ITEMS ||--o| DELIVERY_ITEMS : "fulfilled by"
+    DELIVERY_ITEMS ||--o{ STOCK_MOVEMENTS : "moves stock"
+    DELIVERY_ITEMS ||--o| INVOICE_LINES : "billed as"
+    INVOICES ||--o{ INVOICE_LINES : "contains"
+    CUSTOMERS ||--o{ INVOICES : "issued to"
+    INVOICES ||--o{ PAYMENTS : "receives"
+    INVOICES ||--o{ CREDIT_NOTES : "corrected by"
+    CREDIT_NOTES ||--o{ CREDIT_NOTE_LINES : "contains"
+    INVOICE_LINES ||--o{ CREDIT_NOTE_LINES : "credited by"
+    CREDIT_NOTES ||--o{ CREDIT_NOTE_APPLICATIONS : "applied via"
+    INVOICES ||--o{ CREDIT_NOTE_APPLICATIONS : "offset by"
+    INVOICES ||--o{ EMISSION_OUTBOX : "queued in"
+    CREDIT_NOTES ||--o{ EMISSION_OUTBOX : "queued in"
+    EMISSION_OUTBOX ||--o{ IX_SYNC_LOG : "logs calls"
+  </div>
+  <p class="center" style="font-size: 0.55em; color: var(--ef-gray); margin-top: 0.5em;"><em>Solid link = required (must exist). Dotted = optional (may or may not exist). Crow's foot = "many".</em></p>
+</section>
+
+<!-- SLIDE 9: CORE TABLES DETAIL -->
+<section>
+  <div class="kicker">Core tables in detail</div>
+  <h2>Column-level view of the main tables</h2>
+  <div class="schema-cards">
+    <div class="schema-card">
+      <div class="schema-card-header">orders</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>customer_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>delivery_date</span><span class="type">date</span></div>
+      <div class="schema-card-row"><span></span><span>status</span><span class="type">enum</span></div>
+      <div class="schema-card-row"><span></span><span>type</span><span class="type">enum</span></div>
+      <div class="schema-card-row"><span></span><span>billable</span><span class="type">bool</span></div>
+      <div class="schema-card-row"><span></span><span>submitted_at</span><span class="type">tstz</span></div>
+      <div class="schema-card-row"><span></span><span>approved_by</span><span class="type">uuid?</span></div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-header">order_items</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>order_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>product_id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span></span><span>qty</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>unit_price</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>discount_pct</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>discount_reason</span><span class="type">enum</span></div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-header">deliveries</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>order_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>scheduled_date</span><span class="type">date</span></div>
+      <div class="schema-card-row"><span></span><span>route_code</span><span class="type">text</span></div>
+      <div class="schema-card-row"><span></span><span>stop_order</span><span class="type">int</span></div>
+      <div class="schema-card-row"><span></span><span>status</span><span class="type">enum</span></div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-header">delivery_items</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>delivery_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>order_item_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>qty_delivered</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>status</span><span class="type">enum</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>parent_delivery_item_id</span><span class="type">uuid?</span></div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-header warm">invoices</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>customer_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>ix_invoice_id</span><span class="type">text</span></div>
+      <div class="schema-card-row"><span></span><span>invoice_number</span><span class="type">text</span></div>
+      <div class="schema-card-row"><span></span><span>total</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>outstanding_amount</span><span class="type">generated</span></div>
+      <div class="schema-card-row"><span></span><span>status</span><span class="type">enum</span></div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-header warm">credit_notes</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>related_invoice_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>ix_credit_note_id</span><span class="type">text</span></div>
+      <div class="schema-card-row"><span></span><span>total</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>remaining_amount</span><span class="type">generated</span></div>
+      <div class="schema-card-row"><span></span><span>reason</span><span class="type">enum</span></div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-header warm">payments</div>
+      <div class="schema-card-row"><span class="icon pk">🔑</span><span>id</span><span class="type">uuid</span></div>
+      <div class="schema-card-row"><span class="icon fk">↗</span><span>invoice_id</span><span class="type">uuid FK</span></div>
+      <div class="schema-card-row"><span></span><span>invoicexpress_id</span><span class="type">text UNIQUE</span></div>
+      <div class="schema-card-row"><span></span><span>amount</span><span class="type">numeric</span></div>
+      <div class="schema-card-row"><span></span><span>method</span><span class="type">enum</span></div>
+      <div class="schema-card-row"><span></span><span>received_at</span><span class="type">tstz</span></div>
+    </div>
+  </div>
+  <p class="center" style="font-size: 0.5em; color: var(--ef-gray); margin-top: 0.4em;">🔑 primary key · ↗ foreign key</p>
+</section>
+
+<!-- SLIDE 10a: CASE — NORMAL ORDER · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 1 of 7 · Flow</div>
+  <h2>Normal daily order</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Scenario</h4>
+        <p><em>Honest Greens</em> orders Monday for Tuesday delivery: <strong>20 SKUs</strong>, standard prices. All lines delivered OK. Invoiced same evening. Paid Friday by bank transfer.</p>
+        <p style="margin-top: 6px;">The 90% path — no special cases, no failures, no discounts. This is what the system does every day.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Order submission (customer clicks "confirm")</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT orders</span><span class="op-tag op-insert">INSERT order_items × 20</span></div>
+          <div class="step-note">orders.status = 'submitted', type = 'standard', billable = true</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Auto-approval at 17h (or manual approval before)</div>
+          <div class="step-ops"><span class="op-tag op-update">UPDATE orders</span><span class="op-tag op-insert">INSERT order_events</span></div>
+          <div class="step-note">status → 'approved'; event = 'auto_approved_at_17h'</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Lock at 06h + route planning (OptimoRoute cluster)</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT deliveries</span><span class="op-tag op-insert">INSERT delivery_items × 20</span></div>
+          <div class="step-note">1 delivery for whole order · 20 line items · status='planned'</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Delivery day — driver completes route in OptimoRoute</div>
+          <div class="step-ops"><span class="op-tag op-update">UPDATE deliveries → closed</span><span class="op-tag op-insert">stock_movements × 20</span></div>
+          <div class="step-note">stock_movements.type = 'sale_out' · one per SKU shipped</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Invoicing fires (routes closed + shipping notes emitted)</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT invoices</span><span class="op-tag op-insert">invoice_lines × 20</span><span class="op-tag op-insert">emission_outbox</span></div>
+          <div class="step-note">status = 'validating' → 'emitted' with invoice_number from InvoiceXpress</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-title">Payment (Friday, syncs from InvoiceXpress)</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT payments</span></div>
+          <div class="step-note">invoices.outstanding_amount drops to 0 → status = 'paid'</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 10b: CASE — NORMAL ORDER · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 1 of 7 · Data landing</div>
+  <h2>Normal daily order — what lands in the DB</h2>
+  <div class="data-snapshot">
+    <h4>Rows created after step 6 (payment received)</h4>
+    <div class="snap-tables">
+      <div class="snap-table">
+        <div class="snap-header">orders</div>
+        <table><tr><th>id</th><th>customer</th><th>type</th><th>status</th></tr>
+          <tr><td>ord-9F1</td><td>Honest Greens</td><td>standard</td><td>locked</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">order_items (×20)</div>
+        <table><tr><th>product</th><th>qty</th><th>price</th><th>disc</th></tr>
+          <tr><td>tomato</td><td>10 kg</td><td>1.80</td><td>0%</td></tr>
+          <tr><td>...18 more lines...</td><td></td><td></td><td></td></tr>
+          <tr><td>onion</td><td>5 kg</td><td>0.90</td><td>0%</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">deliveries</div>
+        <table><tr><th>id</th><th>date</th><th>status</th></tr>
+          <tr><td>del-A2</td><td>2026-07-14</td><td>closed</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">delivery_items (×20)</div>
+        <table><tr><th>sku</th><th>qty</th><th>status</th></tr>
+          <tr><td>tomato</td><td>10 kg</td><td>delivered</td></tr>
+          <tr><td>...18 more...</td><td></td><td></td></tr>
+          <tr><td>onion</td><td>5 kg</td><td>delivered</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">stock_movements (×20)</div>
+        <table><tr><th>type</th><th>qty</th><th>ref</th></tr>
+          <tr><td>sale_out</td><td>−10 kg</td><td>del-item</td></tr>
+          <tr><td>...</td><td></td><td></td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoices</div>
+        <table><tr><th>ix_num</th><th>total</th><th>status</th></tr>
+          <tr><td>FT-1042</td><td>458.30</td><td class="snap-new">paid</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoice_lines (×20)</div>
+        <table><tr><th>product</th><th>net</th></tr>
+          <tr><td>tomato</td><td>18.00</td></tr>
+          <tr><td>...18 more...</td><td></td></tr>
+          <tr><td>onion</td><td>4.50</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">payments</div>
+        <table><tr><th>method</th><th>amount</th><th>date</th></tr>
+          <tr><td>transfer</td><td>458.30</td><td>2026-07-17</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>Full traceability</strong> · one order → one delivery (20 items) → one invoice (20 lines) → one payment. Every row is linked back to the customer and audit log via <code>order_events</code>.</p>
+</section>
+
+<!-- SLIDE 11a: CASE — PARTIAL FAILURE · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 2 of 7 · Flow</div>
+  <h2>Partial failure — 2 of 20 SKUs not delivered (invoice already emitted)</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Key constraint</h4>
+        <p><strong>Invoice fires at end of day D</strong> for all 20 SKUs. D+1: customer reports 2 SKUs missing — invoice already at InvoiceXpress, immutable.</p>
+        <p><strong>OptimoRoute has no line-level status today.</strong></p>
+        <p style="margin-top: 3px;"><strong>Phase 1</strong> (now): customer WhatsApp / driver incident → GP admin marks failed lines → per line: <strong>NC or Redeliver (billable=false)</strong>.</p>
+        <p><strong>Phase 2:</strong> read incidents DB. <strong>Phase 3:</strong> OptimoRoute line-status if supported.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">D — 20 SKUs shipped as one delivery, invoiced at end of day</div>
+          <div class="step-ops"><span class="op-tag op-insert">invoices FT-1042</span><span class="op-tag op-insert">invoice_lines × 20</span></div>
+          <div class="step-note">Invoice already at InvoiceXpress · immutable</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">D+1 morning — customer WhatsApp: "2 items missing" (or driver incident log)</div>
+          <div class="step-ops"><span class="op-tag op-manual">Manual — GP admin</span></div>
+          <div class="step-note">No auto-signal from OptimoRoute today. Admin acts as the source of truth.</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Admin opens delivery in GP → marks 2 lines as failed</div>
+          <div class="step-ops"><span class="op-tag op-update">UPDATE delivery_items × 2</span><span class="op-tag op-insert">order_events × 2</span></div>
+          <div class="step-note">status='failed' + reason + failed_by (admin user) + failed_at</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">For EACH failed line, admin picks resolution — this is the key decision</div>
+          <div class="step-ops"><span class="op-tag op-manual">Admin choice per line</span></div>
+          <div class="step-note"><strong>A. Credit Note</strong> if customer wants money back · <strong>B. Redeliver</strong> if customer accepts SKU tomorrow</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">5A</div>
+        <div class="step-content">
+          <div class="step-title">Path A — Credit Note (line 1, "tomato")</div>
+          <div class="step-ops"><span class="op-tag op-insert">credit_notes</span><span class="op-tag op-insert">credit_note_lines</span><span class="op-tag op-insert">emission_outbox</span></div>
+          <div class="step-note">CN emitted at IX · applied to FT-1042 · outstanding drops · stock_return if product came back</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">5B</div>
+        <div class="step-content">
+          <div class="step-title">Path B — Redeliver next day (line 2, "onion")</div>
+          <div class="step-ops"><span class="op-tag op-insert">new delivery_item</span><span class="op-tag op-insert">stock_movements (return + out)</span></div>
+          <div class="step-note"><strong>billable = false</strong> (parent already invoiced) → NEVER hits tomorrow's invoice run</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 11b: CASE — PARTIAL FAILURE · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 2 of 7 · Data landing</div>
+  <h2>Partial failure — what changes in the DB</h2>
+  <div class="data-snapshot">
+    <h4>After admin's per-line decisions (NC for tomato, redeliver for onion)</h4>
+    <div class="snap-tables">
+      <div class="snap-table">
+        <div class="snap-header">delivery_items — 2 originals updated</div>
+        <table><tr><th>id</th><th>sku</th><th>status</th><th>resolution</th></tr>
+          <tr><td>di-042-06</td><td>tomato</td><td class="snap-changed">failed</td><td>credit_note</td></tr>
+          <tr><td>di-042-14</td><td>onion</td><td class="snap-changed">failed</td><td>redeliver</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">delivery_items — redeliver row (D+1)</div>
+        <table><tr><th>id</th><th>sku</th><th>parent</th><th>billable</th></tr>
+          <tr><td class="snap-new">di-101-03</td><td>onion</td><td>di-042-14</td><td class="snap-null">false</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">credit_notes (new)</div>
+        <table><tr><th>id</th><th>related_inv</th><th>ix_num</th><th>total</th></tr>
+          <tr><td>cn-77</td><td>inv-1042</td><td>NC-58</td><td>18.00</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">credit_note_lines</div>
+        <table><tr><th>invoice_line</th><th>qty</th><th>reason</th></tr>
+          <tr><td>il-042-06</td><td>10 kg</td><td>not_delivered</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">credit_note_applications</div>
+        <table><tr><th>cn</th><th>invoice</th><th>amount</th></tr>
+          <tr><td>cn-77</td><td>inv-1042</td><td>18.00</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoices (unchanged, outstanding drops)</div>
+        <table><tr><th>ix_num</th><th>total</th><th>outstanding</th></tr>
+          <tr><td>FT-1042</td><td>458.30</td><td class="snap-changed">440.30</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">stock_movements (redeliver = D+1 shipment)</div>
+        <table><tr><th>type</th><th>qty</th><th>ref</th></tr>
+          <tr><td>sale_out</td><td>−5 kg</td><td>di-101-03</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">order_events (audit)</div>
+        <table><tr><th>event</th><th>actor</th></tr>
+          <tr><td>delivery_item_failed</td><td>gp:admin</td></tr>
+          <tr><td>cn_emitted</td><td>gp:admin</td></tr>
+          <tr><td>redeliver_scheduled</td><td>gp:admin</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>Invoice FT-1042 is never rewritten.</strong> The CN corrects it on the finance side; the redelivered line carries <code>billable=false</code> so it doesn't reappear on the next invoice run.</p>
+</section>
+
+<!-- SLIDE 12a: CASE — SAMPLE · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 3 of 7 · Flow</div>
+  <h2>Sample to a prospect</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Scenario</h4>
+        <p>Sales rep sends a sample box to a prospect. Admin creates an order of type <strong>'sample'</strong>. Product leaves the warehouse but <strong>never becomes an invoice</strong>. Cost tracked separately for dashboards.</p>
+        <p style="margin-top: 6px;">Same delivery pipeline as a normal order — only the flag <code>billable=false</code> and the order type differ.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Admin creates sample order in Orders Management</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT orders</span><span class="op-tag op-insert">INSERT order_items</span></div>
+          <div class="step-note">type = 'sample', billable = false · unit_price = 0 (cost tracked via product cost)</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Ships with a normal route the next day</div>
+          <div class="step-ops"><span class="op-tag op-insert">deliveries</span><span class="op-tag op-insert">delivery_items</span><span class="op-tag op-insert">stock_movements</span></div>
+          <div class="step-note">stock_movements.type = <strong>'sample_out'</strong> (distinct from 'sale_out')</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Invoicing run skips this order</div>
+          <div class="step-ops"><span class="op-tag op-noop">no invoice_lines</span><span class="op-tag op-noop">no emission</span></div>
+          <div class="step-note">billable=false blocks it · cost aggregated in <strong>mv_sample_goodwill_cost</strong> for management</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 12b: CASE — SAMPLE · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 3 of 7 · Data landing</div>
+  <h2>Sample — what lands in the DB</h2>
+  <div class="data-snapshot">
+    <h4>Rows created — no invoice, no receivable</h4>
+    <div class="snap-tables">
+      <div class="snap-table">
+        <div class="snap-header">orders</div>
+        <table><tr><th>id</th><th>customer</th><th>type</th><th>billable</th></tr>
+          <tr><td>ord-S4</td><td>Prospect X</td><td class="snap-new">sample</td><td class="snap-null">false</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">order_items</div>
+        <table><tr><th>product</th><th>qty</th><th>unit_price</th></tr>
+          <tr><td>tomato</td><td>2 kg</td><td>0.00</td></tr>
+          <tr><td>onion</td><td>1 kg</td><td>0.00</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">deliveries + delivery_items</div>
+        <table><tr><th>del_id</th><th>sku</th><th>status</th></tr>
+          <tr><td>del-S4</td><td>tomato</td><td>delivered</td></tr>
+          <tr><td>del-S4</td><td>onion</td><td>delivered</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">stock_movements</div>
+        <table><tr><th>type</th><th>qty</th><th>reference</th></tr>
+          <tr><td class="snap-new">sample_out</td><td>−2 kg</td><td>di-S4-01</td></tr>
+          <tr><td class="snap-new">sample_out</td><td>−1 kg</td><td>di-S4-02</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoices</div>
+        <table><tr><th></th></tr>
+          <tr><td class="snap-null">— none — (billable=false skips emission)</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">mv_sample_goodwill_cost (materialized)</div>
+        <table><tr><th>month</th><th>type</th><th>cost</th></tr>
+          <tr><td>2026-07</td><td>sample</td><td class="snap-changed">+8.40</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>Sample cost visible to management</strong> · aggregated per month + per rep in the materialized view · not a receivable, but tracked as marketing spend.</p>
+</section>
+
+<!-- SLIDE 13a: CASE — GOODWILL · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 4 of 7 · Flow</div>
+  <h2>Goodwill (replacement, no charge)</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Scenario</h4>
+        <p>Customer says yesterday's tomatoes arrived bruised. Instead of a Credit Note, we ship a replacement box <strong>free of charge</strong> tomorrow. Tracked as goodwill to measure cost per customer per year.</p>
+        <p style="margin-top: 6px;">Difference vs sample: this is remediation for an <em>existing</em> customer. Order links back to the original invoice for root-cause tracking.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Admin creates goodwill order in GP</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT orders</span><span class="op-tag op-insert">INSERT order_items</span></div>
+          <div class="step-note">type = 'goodwill', billable = false · linked to customer history</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Ships with next-day route</div>
+          <div class="step-ops"><span class="op-tag op-insert">deliveries</span><span class="op-tag op-insert">delivery_items</span><span class="op-tag op-insert">stock_movements</span></div>
+          <div class="step-note">stock_movements.type = <strong>'goodwill_out'</strong> (separate from sample_out and sale_out)</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">No invoice fires</div>
+          <div class="step-ops"><span class="op-tag op-noop">no invoice_lines</span></div>
+          <div class="step-note">Cost per customer accumulates in dashboard · surfaces if customer is really profitable</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 13b: CASE — GOODWILL · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 4 of 7 · Data landing</div>
+  <h2>Goodwill — what lands in the DB</h2>
+  <div class="data-snapshot">
+    <h4>Rows created + link back to root cause</h4>
+    <div class="snap-tables">
+      <div class="snap-table">
+        <div class="snap-header">orders</div>
+        <table><tr><th>id</th><th>customer</th><th>type</th><th>root_cause_invoice</th></tr>
+          <tr><td>ord-G7</td><td>Honest Greens</td><td class="snap-new">goodwill</td><td>FT-1042</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">order_items</div>
+        <table><tr><th>product</th><th>qty</th><th>unit_price</th><th>reason</th></tr>
+          <tr><td>tomato</td><td>10 kg</td><td>0.00</td><td>bruised in prev delivery</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">deliveries + delivery_items</div>
+        <table><tr><th>del_id</th><th>sku</th><th>status</th></tr>
+          <tr><td>del-G7</td><td>tomato</td><td>delivered</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">stock_movements</div>
+        <table><tr><th>type</th><th>qty</th><th>reference</th></tr>
+          <tr><td class="snap-new">goodwill_out</td><td>−10 kg</td><td>di-G7-01</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoices</div>
+        <table><tr><th></th></tr>
+          <tr><td class="snap-null">— none — (billable=false skips emission)</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">mv_sample_goodwill_cost</div>
+        <table><tr><th>month</th><th>customer</th><th>type</th><th>cost</th></tr>
+          <tr><td>2026-07</td><td>Honest Greens</td><td>goodwill</td><td class="snap-changed">+18.00</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>Goodwill cost is customer-attributed</strong> · management dashboard shows year-to-date goodwill per customer to answer "is this customer really profitable?"</p>
+</section>
+
+<!-- SLIDE 14a: CASE — PROMO · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 5 of 7 · Flow</div>
+  <h2>Promo — near-expiry / excess stock discount + customer banner</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Scenario</h4>
+        <p>200 kg of product X close to expiry. Admin sets a <strong>20% promo discount</strong> for 3 days.</p>
+        <p style="margin-top: 4px;"><strong>Promo banner tool</strong> (new): admin picks the target customers (all, a segment, or specific accounts), writes an optional note, and the promo appears <strong>highlighted at the top of the Customer Site</strong> — "20% off product X, until Friday".</p>
+        <p style="margin-top: 4px;">Every order line for X during the window auto-picks the discount, reason and promo id. No manual pricing.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Admin activates promo (per product, with window)</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT product_promos</span></div>
+          <div class="step-note">discount_pct = 20, reason = 'promo_expiry', starts_at, ends_at</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Admin creates promo banner (optional) — picks audience + note</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT promo_banner</span></div>
+          <div class="step-note">audience = all / segment / customer_ids[] · text overrides default</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Customer opens the site → banner visible at the top</div>
+          <div class="step-ops"><span class="op-tag op-select">SELECT active_banner_for_customer()</span></div>
+          <div class="step-note">Highlighted card · "20% off tomato, until Friday" · link that pre-adds SKU X to cart</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Customer places order containing product X</div>
+          <div class="step-ops"><span class="op-tag op-insert">INSERT orders</span><span class="op-tag op-insert">INSERT order_items</span></div>
+          <div class="step-note">Trigger T26 auto-fills discount_pct / discount_reason / applied_promo_id</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Delivery + invoicing as normal — discount already priced in</div>
+          <div class="step-ops"><span class="op-tag op-insert">delivery_items</span><span class="op-tag op-insert">invoice_lines</span></div>
+          <div class="step-note">Total reflects the discount · reason stays on invoice_line for audit</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-title">Management dashboard tracks promo impact</div>
+          <div class="step-ops"><span class="op-tag op-select">v_promo_impact</span></div>
+          <div class="step-note">Kg moved · discount given · % of stock cleared · decide if worth repeating</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 14b: CASE — PROMO · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 5 of 7 · Data landing</div>
+  <h2>Promo — what lands in the DB</h2>
+  <div class="data-snapshot">
+    <h4>Rows created + auto-applied to every matching order line</h4>
+    <div class="snap-tables">
+      <div class="snap-table">
+        <div class="snap-header">product_promos (admin sets)</div>
+        <table><tr><th>id</th><th>product</th><th>%</th><th>reason</th><th>window</th></tr>
+          <tr><td>pr-12</td><td>tomato</td><td>20</td><td class="snap-new">promo_expiry</td><td>Jul 14–16</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">promo_banner (new table)</div>
+        <table><tr><th>promo_id</th><th>audience</th><th>note</th><th>active</th></tr>
+          <tr><td>pr-12</td><td class="snap-new">all_b2b</td><td>"Sabor top!"</td><td>true</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">order_items (trigger T26 auto-fills)</div>
+        <table><tr><th>product</th><th>qty</th><th>price</th><th>discount_pct</th><th>reason</th><th>applied_promo</th></tr>
+          <tr><td>tomato</td><td>10 kg</td><td>1.80</td><td class="snap-changed">20%</td><td>promo_expiry</td><td>pr-12</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoice_lines (audit trail preserved)</div>
+        <table><tr><th>product</th><th>gross</th><th>discount</th><th>net_ex_vat</th><th>reason</th></tr>
+          <tr><td>tomato · 10 kg</td><td>18.00</td><td>−3.60</td><td>14.40</td><td>promo_expiry</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">v_promo_impact (view)</div>
+        <table><tr><th>promo</th><th>kg_moved</th><th>discount_given</th><th>% of stock</th></tr>
+          <tr><td>pr-12</td><td>178 kg</td><td>64.08</td><td class="snap-changed">89%</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>One mechanism serves all discount cases</strong> — commercial, promotional, near-expiry, excess-stock — differentiated by <code>discount_reason</code>. Every discount stays on <code>invoice_lines</code> for audit and margin analysis.</p>
+</section>
+
+<!-- SLIDE 15a: CASE — CREDIT NOTE · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 6 of 7 · Flow</div>
+  <h2>Credit note — correction of an emitted invoice (product refused / spoiled)</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Scenario</h4>
+        <p>Customer received invoice for €800 last week. One line (€120) — tomato box — arrived spoiled and customer <strong>refused it on delivery</strong>. Product came back to warehouse. Customer wants credit, not replacement.</p>
+        <p style="margin-top: 4px;">→ Issue a <strong>Credit Note €120</strong> · stock returned to inventory · CN can apply to that invoice or any future invoice.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Refused product returns to warehouse (delivery close-out)</div>
+          <div class="step-ops"><span class="op-tag op-update">delivery_items → partial_qty</span></div>
+          <div class="step-note">GP marks the 15 kg as refused · stock_returned = true</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Admin creates CN in GP linked to the invoice</div>
+          <div class="step-ops"><span class="op-tag op-insert">credit_notes</span><span class="op-tag op-insert">credit_note_lines</span></div>
+          <div class="step-note">related_invoice_id set · lines point to specific invoice_line_id · reason='quality'</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">CN emitted at InvoiceXpress + stock return written</div>
+          <div class="step-ops"><span class="op-tag op-insert">emission_outbox</span><span class="op-tag op-insert">stock_movements (credit_return)</span></div>
+          <div class="step-note">ix_credit_note_id filled · status='emitted' · stock back to inventory (+15 kg)</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Application: CN abates this or a future invoice (N:M)</div>
+          <div class="step-ops"><span class="op-tag op-insert">credit_note_applications</span></div>
+          <div class="step-note">Can apply full or split across invoices · remaining_amount tracked</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Invoice outstanding recalculates automatically</div>
+          <div class="step-ops"><span class="op-tag op-select">outstanding_amount (generated)</span></div>
+          <div class="step-note">= total − payments − applied CNs → real time · no batch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 15b: CASE — CREDIT NOTE · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 6 of 7 · Data landing</div>
+  <h2>Credit note — what lands in the DB</h2>
+  <div class="data-snapshot">
+    <h4>Rows after CN emission + application to the original invoice</h4>
+    <div class="snap-tables">
+      <div class="snap-table">
+        <div class="snap-header">delivery_items (refused line updated)</div>
+        <table><tr><th>id</th><th>sku</th><th>status</th><th>stock_returned</th></tr>
+          <tr><td>di-042-06</td><td>tomato</td><td class="snap-changed">partial_qty</td><td class="snap-new">true</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">credit_notes (new)</div>
+        <table><tr><th>id</th><th>related_inv</th><th>ix_num</th><th>total</th><th>status</th></tr>
+          <tr><td>cn-77</td><td>inv-1042</td><td>NC-58</td><td>120.00</td><td class="snap-new">emitted</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">credit_note_lines</div>
+        <table><tr><th>invoice_line</th><th>qty</th><th>reason</th></tr>
+          <tr><td>il-042-06</td><td>15 kg</td><td class="snap-new">quality</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">stock_movements (product back)</div>
+        <table><tr><th>type</th><th>qty</th><th>reference</th></tr>
+          <tr><td class="snap-new">credit_return</td><td>+15 kg</td><td>cn_line-77</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">credit_note_applications (N:M)</div>
+        <table><tr><th>cn</th><th>invoice</th><th>amount</th><th>date</th></tr>
+          <tr><td>cn-77</td><td>inv-1042</td><td>120.00</td><td>2026-07-15</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">invoices (outstanding recalcs live)</div>
+        <table><tr><th>id</th><th>total</th><th>payments</th><th>applied_cn</th><th>outstanding</th></tr>
+          <tr><td>inv-1042</td><td>800.00</td><td>0.00</td><td>120.00</td><td class="snap-changed">680.00</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>Outstanding is a generated column</strong> · <code>total − payments − applied_cn</code> · real-time, no batch job. CN can also be split across future invoices via <code>credit_note_applications</code>.</p>
+</section>
+
+<!-- SLIDE 16a: CASE — CUSTOMER BALANCE · FLOW -->
+<section class="case-slide">
+  <div class="kicker">Case walkthrough · 7 of 7 · Flow</div>
+  <h2>Customer balance — "how much does X owe?"</h2>
+  <div class="case-layout">
+    <div>
+      <div class="case-desc">
+        <h4>Scenario</h4>
+        <p>Finance opens a customer file. Wants <strong>real balance right now</strong>: emitted invoices, received payments, unapplied CNs.</p>
+        <p style="margin-top: 4px;">Basis for accepting or holding a new order from a customer in arrears.</p>
+        <p style="margin-top: 6px;">The view is <strong>always live</strong> — no daily batch, no reconciliation window. Every payment sync and every CN application refreshes the balance instantly.</p>
+      </div>
+    </div>
+    <div class="case-steps">
+      <div class="case-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Finance queries <code>v_customer_balance</code></div>
+          <div class="step-ops"><span class="op-tag op-select">SELECT v_customer_balance</span></div>
+          <div class="step-note">Live view · no batch · always up-to-date</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Formula per customer</div>
+          <div class="step-ops"><span class="op-tag op-select">Σ outstanding</span><span class="op-tag op-select">− Σ remaining CN</span></div>
+          <div class="step-note">balance = Σ open invoices − Σ unapplied CNs</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Real-time source data</div>
+          <div class="step-ops"><span class="op-tag op-select">payments</span><span class="op-tag op-select">credit_note_applications</span></div>
+          <div class="step-note">Feed the generated columns · payments sync from IX every 2h</div>
+        </div>
+      </div>
+      <div class="case-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Optional alert: customer over threshold at approval time</div>
+          <div class="step-ops"><span class="op-tag op-select">v_customer_balance</span><span class="op-tag op-manual">admin decides</span></div>
+          <div class="step-note">GP shows warning if balance &gt; €X or days_overdue &gt; N when approving new orders</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 16b: CASE — CUSTOMER BALANCE · DATA -->
+<section class="case-slide data-landing">
+  <div class="kicker">Case walkthrough · 7 of 7 · Data landing</div>
+  <h2>Customer balance — live query result</h2>
+  <div class="data-snapshot">
+    <h4>Live balance for "Honest Greens" · Σ (320.00 + 458.30) − 60.00 = 718.30</h4>
+    <div class="snap-tables">
+      <div class="snap-table warm">
+        <div class="snap-header">Open invoices (outstanding &gt; 0)</div>
+        <table><tr><th>ix_num</th><th>total</th><th>outstanding</th><th>days_overdue</th></tr>
+          <tr><td>FT-1041</td><td>420.00</td><td>320.00</td><td class="snap-changed">12</td></tr>
+          <tr><td>FT-1042</td><td>458.30</td><td>458.30</td><td>5</td></tr></table>
+      </div>
+      <div class="snap-table warm">
+        <div class="snap-header">Unapplied credit notes (remaining &gt; 0)</div>
+        <table><tr><th>ix_num</th><th>total</th><th>applied</th><th>remaining</th></tr>
+          <tr><td>NC-58</td><td>120.00</td><td>60.00</td><td class="snap-new">60.00</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">Payments (last 30 days)</div>
+        <table><tr><th>date</th><th>method</th><th>amount</th><th>applied_to</th></tr>
+          <tr><td>2026-06-25</td><td>transfer</td><td>100.00</td><td>FT-1041</td></tr>
+          <tr><td>2026-07-01</td><td>transfer</td><td>100.00</td><td>FT-1041</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">credit_note_applications</div>
+        <table><tr><th>cn</th><th>invoice</th><th>amount</th></tr>
+          <tr><td>NC-58</td><td>FT-1041</td><td>60.00</td></tr></table>
+      </div>
+      <div class="snap-table gray">
+        <div class="snap-header">v_customer_balance (result)</div>
+        <table><tr><th>customer</th><th>Σ outstanding</th><th>Σ unapplied_cn</th><th>balance</th></tr>
+          <tr><td>Honest Greens</td><td>778.30</td><td>60.00</td><td class="snap-changed">718.30</td></tr></table>
+      </div>
+      <div class="snap-table">
+        <div class="snap-header">Approval-time alert (optional)</div>
+        <table><tr><th>threshold</th><th>current</th><th>action</th></tr>
+          <tr><td>€600 · 7 days</td><td>€718 · 12 days</td><td class="snap-changed">warn admin</td></tr></table>
+      </div>
+    </div>
+  </div>
+  <p class="data-note"><strong>No batch, no snapshots.</strong> Balance = <code>Σ outstanding − Σ unapplied CN</code>, computed from generated columns and the applications table on each read.</p>
+</section>
+
+<!-- SLIDE 17: INVOICING 3 LEVELS -->
+<section>
+  <div class="kicker">Invoicing with InvoiceXpress</div>
+  <h2>Three levels of validation before emission</h2>
+  <div class="arch-stack">
+    <div class="arch-layer green">
+      <span class="badge">Level 1</span>
+      <p><strong>Automatic validation</strong> · Customer has NIF? Amounts add up? All deliveries closed?</p>
+    </div>
+    <div class="arch-layer green">
+      <span class="badge">Level 2</span>
+      <p><strong>Human review</strong> · The app shows each ready-to-emit invoice to admin with a checklist before bulk emission.</p>
+    </div>
+    <div class="arch-layer green">
+      <span class="badge">Level 3</span>
+      <p><strong>Nightly reconciliation</strong> · Every night the system compares Supabase vs InvoiceXpress. If there's a mismatch, finance is alerted.</p>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top: 1em;">
+    <div class="card warm">
+      <h4>Daily invoicing (~85%)</h4>
+      <p>Fires when routes close + shipping notes emitted.</p>
+    </div>
+    <div class="card warm">
+      <h4>Monthly invoicing (~15%)</h4>
+      <p>Month-end (day 1, early morning) → one invoice per customer covering everything delivered in the month.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 18: DEPENDENCIES -->
+<section>
+  <div class="kicker">Outside our control</div>
+  <h2>External dependencies</h2>
+  <table>
+    <thead><tr><th>Area</th><th>What we need</th><th>If not ready</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Stock / Warehouse</strong></td>
+        <td>Inbound/outbound records on the same DB or via API</td>
+        <td>Operate blind on stock levels — manual check at warehouse</td>
+      </tr>
+      <tr>
+        <td><strong>Procurement</strong></td>
+        <td>Supplier purchases visible so we can cross-check with demand</td>
+        <td>No automatic shortage alert → warned only at picking time</td>
+      </tr>
+      <tr>
+        <td><strong>InvoiceXpress</strong></td>
+        <td>3 technical items: webhook, idempotency (client_reference), due-date formula</td>
+        <td>Known workarounds — mild operational impact</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size: 0.6em; margin-top: 0.6em;"><strong>None of these block v2.</strong> Each has a contingency plan. But the full value only lands if the integrations happen.</p>
+</section>
+
+<!-- SLIDE 19: RISKS -->
+<section>
+  <div class="kicker">Risks and mitigations</div>
+  <h2>What could go wrong</h2>
+  <table>
+    <thead><tr><th>Risk</th><th>Probability</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td>Portuguese law requires certified invoicing software</td><td>Certain</td><td>We don't emit — InvoiceXpress (certified) emits. Supabase stores references.</td></tr>
+      <tr><td>InvoiceXpress down at emission time</td><td>Medium</td><td>Queue with automatic retry. No emission is lost.</td></tr>
+      <tr><td>Migration breaks history</td><td>Low</td><td>Read-forward migration. Historical Sheet stays intact.</td></tr>
+      <tr><td>Customer resistance (email → site)</td><td>Medium</td><td>Site runs in parallel with email for 2-4 weeks.</td></tr>
+      <tr><td>OptimoRoute (SaaS) dependency</td><td>Already exists today</td><td>Unchanged — we keep using it as-is.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SLIDE 20: TIMELINE -->
+<section>
+  <div class="kicker">Roadmap</div>
+  <h2>Nine phases over 18-20 weeks</h2>
+  <table>
+    <thead><tr><th style="width:8%">Phase</th><th style="width:52%">Focus</th><th style="width:15%">Duration</th><th style="width:25%">Deliverable</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Foundations (DB, auth, permissions)</td><td>2 wk</td><td>Environment ready</td></tr>
+      <tr><td>2</td><td>Commercial model</td><td>2 wk</td><td>Customer Site v1</td></tr>
+      <tr><td>3</td><td>Logistics and deliveries</td><td>3 wk</td><td>Orders Management (delivery ops)</td></tr>
+      <tr><td>4</td><td><strong>InvoiceXpress integration (critical)</strong></td><td><strong>4 wk</strong></td><td>End-to-end invoicing</td></tr>
+      <tr><td>5</td><td>Financial (payments, CNs, balance)</td><td>2 wk</td><td>Finance module</td></tr>
+      <tr><td>6</td><td>Samples / goodwill / promos / discounts</td><td>1 wk</td><td>Operational categories</td></tr>
+      <tr><td>7</td><td>Management dashboards</td><td>2 wk</td><td>Reporting views</td></tr>
+      <tr><td>8</td><td>Parallel run with the Sheet</td><td>2 wk</td><td>Real-data validation</td></tr>
+      <tr><td>9</td><td>Cutover and Sheet sunset</td><td>1 wk</td><td>Sheet becomes archive</td></tr>
+    </tbody>
+  </table>
+  <p class="center" style="margin-top: 0.6em; font-size: 0.6em;"><strong>No operational interruption.</strong> Phases 8 and 9 run alongside the current system.</p>
+</section>
+
+<!-- SLIDE 21: BACKLOG -->
+<section>
+  <div class="kicker">Backlog</div>
+  <h2>Ideas parked for later</h2>
+  <p style="font-size: 0.7em;">Not blocking the launch:</p>
+  <div class="grid-2">
+    <div class="card warm">
+      <h4>Stock check at approval time</h4>
+      <p>If we know stock, warn admin of shortage on the spot. Product goes to "standby" pending Product team's decision.</p>
+    </div>
+    <div class="card warm">
+      <h4>Customer notifications</h4>
+      <p>Automatic SMS/email/WhatsApp on each order status change.</p>
+    </div>
+    <div class="card warm">
+      <h4>Supplier procurement portal</h4>
+      <p>Close the loop: procurement → stock → orders.</p>
+    </div>
+    <div class="card warm">
+      <h4>Bank reconciliation</h4>
+      <p>Automatic matching between bank statement and InvoiceXpress payments.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 22: DECISIONS -->
+<section>
+  <div class="kicker">Open items</div>
+  <h2>What we still need to align</h2>
+  <div class="grid-2" style="gap: 12px; margin-top: 0.4em;">
+    <div>
+      <h4 style="color: var(--ef-warm); font-size: 0.7em; margin-bottom: 6px;">Needs stakeholder input</h4>
+      <div class="arch-stack" style="gap: 6px;">
+        <div class="arch-layer warm" style="padding: 6px 10px;">
+          <span class="badge">1</span>
+          <p style="font-size: 0.55em;"><strong>Finance department</strong> — payments workflow + bank reconciliation (matching statement lines to InvoiceXpress payments). Who owns the sync? Manual vs automatic?</p>
+        </div>
+        <div class="arch-layer warm" style="padding: 6px 10px;">
+          <span class="badge">2</span>
+          <p style="font-size: 0.55em;"><strong>Data-quality alerts</strong> — thresholds to define: line without unit price, order below €X, order above €X, missing NIF, negative margin. Which are hard blocks vs soft warnings?</p>
+        </div>
+        <div class="arch-layer warm" style="padding: 6px 10px;">
+          <span class="badge">3</span>
+          <p style="font-size: 0.55em;"><strong>"Regular customer didn't order today"</strong> — how many past weeks count as "regular"? At what hour does the alert fire? Who acts on it — GP or Commercial?</p>
+        </div>
+        <div class="arch-layer warm" style="padding: 6px 10px;">
+          <span class="badge">4</span>
+          <p style="font-size: 0.55em;"><strong>Stock + Procurement teams</strong> — signal to expose their data in the format we need · <strong>InvoiceXpress</strong> — 3 technical answers · <strong>B2B comms plan</strong> · <strong>Lock hour</strong> (proposal 06h).</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h4 style="color: var(--ef-green); font-size: 0.7em; margin-bottom: 6px;">Already resolved by design — confirm</h4>
+      <div class="arch-stack" style="gap: 6px;">
+        <div class="arch-layer green" style="padding: 6px 10px;">
+          <span class="badge">A</span>
+          <p style="font-size: 0.55em;"><strong>Samples</strong> → <code>orders.type='sample'</code> · <code>order_items.billable=false</code> · <code>stock_movements.type='sample_out'</code> · no invoice. <em>(Case #3)</em></p>
+        </div>
+        <div class="arch-layer green" style="padding: 6px 10px;">
+          <span class="badge">B</span>
+          <p style="font-size: 0.55em;"><strong>Goodwill</strong> → <code>orders.type='goodwill'</code> · <code>stock_movements.type='goodwill_out'</code> · linked to root cause. <em>(Case #4)</em></p>
+        </div>
+        <div class="arch-layer green" style="padding: 6px 10px;">
+          <span class="badge">C</span>
+          <p style="font-size: 0.55em;"><strong>Failed delivery</strong> → <code>delivery_items.status='failed'</code> · line-level · admin chooses per-item: NC or redeliver <code>billable=false</code> (already invoiced). <em>(Case #2)</em></p>
+        </div>
+        <div class="arch-layer green" style="padding: 6px 10px;">
+          <span class="badge">D</span>
+          <p style="font-size: 0.55em;"><strong>Refused product back to warehouse</strong> → <code>credit_notes</code> + <code>stock_movements.type='credit_return'</code> · stock returns + CN emitted + applied to invoice. <em>(Case #6)</em></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 23: END + DOC LINKS -->
+<section class="title-slide">
+  <div class="kicker">Thank you</div>
+  <h1 style="font-size: 2.2em; margin-bottom: 0.2em;">Questions?</h1>
+  <p class="subtitle" style="margin-top: 0.4em; margin-bottom: 1.5em;">Full documentation available below · click to open</p>
+  <div class="grid-2" style="max-width: 900px; margin: 0 auto; gap: 24px;">
+    <a href="docs.html?f=RESUMO_ADMINISTRACAO.md" target="_blank" class="doc-card" style="text-decoration: none; color: inherit;">
+      <div class="card green" style="padding: 24px 22px; text-align: left; height: 100%; transition: transform 0.15s, box-shadow 0.15s;">
+        <div style="color: var(--ef-warm); font-size: 0.5em; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-bottom: 8px;">Executive summary</div>
+        <h4 style="font-size: 1.3em; margin: 0 0 8px 0;">Resumo Administração</h4>
+        <p style="font-size: 0.85em; color: #555; margin: 0;">Concise overview for stakeholders — business rationale, apps, phasing, decisions needed.</p>
+        <p style="font-size: 0.75em; color: var(--ef-green); margin-top: 12px; font-weight: 600;">Open →</p>
+      </div>
+    </a>
+    <a href="docs.html?f=ORDERS_V2_ARCHITECTURE.md" target="_blank" class="doc-card" style="text-decoration: none; color: inherit;">
+      <div class="card warm" style="padding: 24px 22px; text-align: left; height: 100%;">
+        <div style="color: var(--ef-warm); font-size: 0.5em; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-bottom: 8px;">Full architecture</div>
+        <h4 style="font-size: 1.3em; margin: 0 0 8px 0;">Orders v2 Architecture</h4>
+        <p style="font-size: 0.85em; color: #555; margin: 0;">18 sections · schema, states, triggers, SQL, ER diagram, phases, migration plan.</p>
+        <p style="font-size: 0.75em; color: var(--ef-green); margin-top: 12px; font-weight: 600;">Open →</p>
+      </div>
+    </a>
+  </div>
+</section>
+
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'neutral',
+    themeVariables: {
+      primaryColor: '#4c956c',
+      primaryTextColor: '#1a1a1a',
+      primaryBorderColor: '#2c6e49',
+      lineColor: '#6b6b6b',
+      secondaryColor: '#fefee3',
+      tertiaryColor: '#d68c45'
+    },
+    er: { useMaxWidth: true, layoutDirection: 'LR' }
+  });
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    controls: true,
+    progress: true,
+    transition: 'fade',
+    width: 1280,
+    height: 800,
+    margin: 0.04,
+  });
+  Reveal.on('ready', () => mermaid.run());
+  Reveal.on('slidechanged', () => mermaid.run());
+</script>
+</body>
+</html>

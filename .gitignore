@@ -1,0 +1,14 @@
+# Local tooling / credentials
+.claude/
+.mcp.json
+
+# Large source data
+*.csv
+
+# Internal drafts (not for public repo)
+Equal_Food_Orders_Arquitetura_e_Processos.md
+SUPABASE_SCHEMA.md
+
+# OS
+.DS_Store
+Thumbs.db
