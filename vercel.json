@@ -2,7 +2,6 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/apresentacao", "destination": "/APRESENTACAO_ADMINISTRACAO.html" },
-    { "source": "/docs", "destination": "/docs.html" },
     { "source": "/resumo", "destination": "/docs.html?f=RESUMO_ADMINISTRACAO.md" },
     { "source": "/arquitetura", "destination": "/docs.html?f=ORDERS_V2_ARCHITECTURE.md" }
   ],
