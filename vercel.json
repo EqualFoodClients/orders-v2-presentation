@@ -1,9 +1,9 @@
 {
   "cleanUrls": true,
-  "rewrites": [
-    { "source": "/apresentacao", "destination": "/APRESENTACAO_ADMINISTRACAO.html" },
-    { "source": "/resumo", "destination": "/docs.html?f=RESUMO_ADMINISTRACAO.md" },
-    { "source": "/arquitetura", "destination": "/docs.html?f=ORDERS_V2_ARCHITECTURE.md" }
+  "redirects": [
+    { "source": "/apresentacao", "destination": "/APRESENTACAO_ADMINISTRACAO.html", "permanent": false },
+    { "source": "/resumo", "destination": "/docs.html?f=RESUMO_ADMINISTRACAO.md", "permanent": false },
+    { "source": "/arquitetura", "destination": "/docs.html?f=ORDERS_V2_ARCHITECTURE.md", "permanent": false }
   ],
   "headers": [
     {
