@@ -1,7 +1,6 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/APRESENTACAO_ADMINISTRACAO.html" },
     { "source": "/apresentacao", "destination": "/APRESENTACAO_ADMINISTRACAO.html" },
     { "source": "/docs", "destination": "/docs.html" },
     { "source": "/resumo", "destination": "/docs.html?f=RESUMO_ADMINISTRACAO.md" },
